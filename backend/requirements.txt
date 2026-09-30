@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+pandas
+numpy
+scikit-learn
+xgboost
+lightgbm
+shap
+openpyxl
+python-multipart
+python-dateutil

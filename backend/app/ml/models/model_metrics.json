@@ -1,0 +1,53 @@
+{
+  "feature_names": [
+    "schedule_drift",
+    "spend_progress_gap",
+    "cost_escalation",
+    "physical_progress",
+    "time_consumed_pct",
+    "progress_velocity",
+    "recovery_gap",
+    "expenditure_pct",
+    "revised_cost"
+  ],
+  "model_metrics": {
+    "date_revision": {
+      "xgboost": {
+        "roc_auc": 0.8378,
+        "pr_auc": 0.6437,
+        "f1": 0.5859
+      },
+      "logreg": {
+        "roc_auc": 0.7713,
+        "pr_auc": 0.4636,
+        "f1": 0.4937
+      },
+      "rf": {
+        "roc_auc": 0.8343,
+        "pr_auc": 0.6248,
+        "f1": 0.5625
+      }
+    },
+    "cost_revision": {
+      "xgboost": {
+        "roc_auc": 0.6713,
+        "pr_auc": 0.0323,
+        "f1": 0.0
+      },
+      "logreg": {
+        "roc_auc": 0.5627,
+        "pr_auc": 0.0058,
+        "f1": 0.0069
+      },
+      "rf": {
+        "roc_auc": 0.6266,
+        "pr_auc": 0.0489,
+        "f1": 0.0564
+      }
+    }
+  },
+  "training_size": 3765,
+  "positive_date_revision": 767,
+  "positive_cost_revision": 10,
+  "disclaimer": "With only 4 monthly snapshots, model is demonstrative. Production-grade reliability requires longer history."
+}
