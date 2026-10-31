@@ -323,7 +323,7 @@ def train():
     with open(feature_path, "w") as f:
         json.dump(FEATURES, f)
 
-    print(f"\n✅ Training complete. Metrics saved to {meta_path}")
+    print(f"\n[OK] Training complete. Metrics saved to {meta_path}")
     return meta
 
 

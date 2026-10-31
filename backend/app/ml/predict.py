@@ -96,11 +96,14 @@ def _rule_based_explanations(features: Dict) -> List[str]:
     tc = features.get("time_consumed_pct", 0)
     pp = features.get("physical_progress", 0)
 
-    if sd > 30:
+    if pp >= 100.0:
+        return ["Project is physically complete"]
+
+    if sd > 30 and pp < 100:
         reasons.append(f"Very high schedule drift ({sd:.1f}pp — time consumed far exceeds physical progress)")
-    elif sd > 15:
+    elif sd > 15 and pp < 100:
         reasons.append(f"High schedule drift ({sd:.1f}pp behind schedule)")
-    elif sd > 5:
+    elif sd > 5 and pp < 100:
         reasons.append(f"Moderate schedule drift ({sd:.1f}pp)")
 
     if ce > 30:
@@ -110,26 +113,26 @@ def _rule_based_explanations(features: Dict) -> List[str]:
     elif ce > 5:
         reasons.append(f"Moderate cost escalation ({ce:.1f}%)")
 
-    if spg > 20:
+    if spg > 20 and pp < 90:
         reasons.append(f"Large spend-progress gap ({spg:.1f}pp — expenditure ahead of physical output)")
-    elif spg > 10:
+    elif spg > 10 and pp < 90:
         reasons.append(f"Spend-progress gap of {spg:.1f}pp")
 
-    if pv <= 0:
+    if pv <= 0 and pp < 100:
         reasons.append("Progress has stagnated or regressed recently")
-    elif pv < 1.0:
+    elif pv < 0.5 and pp < 50:
         reasons.append(f"Progress velocity is very slow ({pv:.2f}%/month)")
 
-    if rg > 5:
+    if rg > 5 and pp < 90:
         reasons.append(f"Recovery gap of {rg:.1f}%/month — current pace insufficient to meet deadline")
-    elif rg > 2:
+    elif rg > 2 and pp < 90:
         reasons.append(f"Moderate recovery gap ({rg:.1f}%/month needed above current pace)")
 
     if tc > 90 and pp < 70:
-        reasons.append("Project is near its original planned end date with significant work remaining")
+        reasons.append("Project is near or past its planned end date with significant work remaining")
 
     if not reasons:
-        reasons.append("No major risk indicators detected at this time")
+        reasons.append("Project is progressing within normal risk parameters")
 
     return reasons
 

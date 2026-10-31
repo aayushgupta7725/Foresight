@@ -31,8 +31,12 @@ const Sidebar = ({ activePage, activeSnapshot, onNavigate }) => {
       padding: '20px 12px', flexShrink: 0,
     }}>
       {/* Logo */}
-      <div style={{ padding: '0 8px 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <img src="/Logo with name.png" alt="Foresight" style={{ height: 28 }} />
+      <div style={{ padding: '4px 8px 24px' }}>
+        <img
+          src="/Logo with name.png"
+          alt="Foresight"
+          style={{ width: '100%', maxWidth: 160, height: 'auto', display: 'block' }}
+        />
       </div>
 
       {/* Navigation */}

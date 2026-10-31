@@ -1,0 +1,33 @@
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+**/*.pyc
+backend/.venv/
+backend/venv/
+backend/.env
+
+# SQLite — mount as a volume at runtime so data persists
+backend/foresight.db
+backend/paimana.db
+*.sqlite3
+
+# Uploaded data files — mount as a volume
+backend/uploads/
+PAIMANA_*.xlsx
+
+# Dev artefacts
+*.log
+.git/
+.gitignore
+.gitattributes
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+

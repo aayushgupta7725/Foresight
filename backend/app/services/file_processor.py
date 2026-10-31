@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 from typing import List, Dict, Any
 import numpy as np
@@ -6,6 +7,17 @@ def clean_value(val):
     if pd.isna(val) or val == "-":
         return None
     return val
+
+def clean_state(val: Any) -> str:
+    if val is None or pd.isna(val):
+        return ""
+    s = str(val).strip()
+    if not s or s == "-":
+        return ""
+    # Strip any merged table rows or OCR artifacts like '... NA (08/2010) ...'
+    if " NA (" in s or " NA " in s:
+        s = re.split(r'\s+NA\b', s)[0].strip()
+    return s
 
 def process_excel(file_path: str, snapshot_date: str) -> List[Dict[str, Any]]:
     df = pd.read_excel(file_path)
@@ -46,7 +58,7 @@ def process_excel(file_path: str, snapshot_date: str) -> List[Dict[str, Any]]:
             "project_id": str(row.get("project_id", "")),
             "project_name": str(row.get("project_name", "")),
             "agency": str(row.get("agency", "")),
-            "state": str(row.get("state", "")),
+            "state": clean_state(row.get("state", "")),
             "sector": None, # Derivable from agency later
             "snapshot_date": snapshot_date,
             "start_date": clean_value(row.get("start_date")),

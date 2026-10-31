@@ -35,7 +35,8 @@ def get_dashboard_summary(db: Session = Depends(connection.get_db)):
             "total_projects": 0, "high_risk": 0, "medium_risk": 0, "low_risk": 0,
             "stagnating": 0, "high_schedule_drift": 0, "high_cost_escalation": 0,
             "deadline_pressure": 0, "total_capex": 0.0, "high_risk_capex": 0.0,
-            "high_risk_capex_pct": 0.0, "active_snapshot": "No Data", "sector_breakdown": [],
+            "high_risk_capex_pct": 0.0, "active_snapshot": "No Data",
+            "sector_breakdown": [], "state_breakdown": [],
         }
     return summary
 
@@ -47,18 +48,18 @@ def get_dashboard_summary(db: Session = Depends(connection.get_db)):
 @router.get("/api/projects")
 def get_projects(
     db: Session = Depends(connection.get_db),
-    risk_level:   Optional[str]   = Query(None),
-    sector:       Optional[str]   = Query(None),
-    state:        Optional[str]   = Query(None),
-    search:       Optional[str]   = Query(None),
-    min_progress: Optional[float] = Query(None),
-    max_progress: Optional[float] = Query(None),
-    min_drift:    Optional[float] = Query(None),
-    stagnating:   Optional[bool]  = Query(None),
-    sort_by:      str             = Query("risk_score"),
-    sort_dir:     str             = Query("desc"),
-    limit:        int             = Query(50, le=500),
-    offset:       int             = Query(0),
+    risk_level:   Optional[str]   = None,
+    sector:       Optional[str]   = None,
+    state:        Optional[str]   = None,
+    search:       Optional[str]   = None,
+    min_progress: Optional[float] = None,
+    max_progress: Optional[float] = None,
+    min_drift:    Optional[float] = None,
+    stagnating:   Optional[bool]  = None,
+    sort_by:      str             = "risk_score",
+    sort_dir:     str             = "desc",
+    limit:        int             = 50,
+    offset:       int             = 0,
 ):
     _ensure_cache(db)
     all_projects = get_cached_projects()
@@ -81,7 +82,7 @@ def get_projects(
     if sector and sector not in ("All Sectors", ""):
         results = [p for p in results if p["sector"] == sector]
 
-    if state and state not in ("All 28 States & UTs", ""):
+    if state and state not in ("All 28 States & UTs", "All States & UTs", "All States", ""):
         results = [p for p in results if p["state"] == state]
 
     if min_progress is not None:
@@ -123,7 +124,11 @@ def get_projects(
 def get_states(db: Session = Depends(connection.get_db)):
     _ensure_cache(db)
     projects = get_cached_projects() or []
-    states   = sorted({p["state"] for p in projects if p.get("state")})
+    all_states = {p["state"] for p in projects if p.get("state")}
+    singles  = sorted([s for s in all_states if not s.startswith("Multi-States") and s not in ("PAN India", "Offshore")])
+    specials = sorted([s for s in all_states if s in ("PAN India", "Offshore")])
+    multis   = sorted([s for s in all_states if s.startswith("Multi-States")])
+    states   = singles + specials + multis
     return states
 
 
@@ -563,9 +568,21 @@ def get_data_sufficiency(db: Session = Depends(connection.get_db)):
             "severity": "warning",
         })
 
+    counts_by_date = dict(
+        db.query(schema.ProjectSnapshot.snapshot_date, func.count(schema.ProjectSnapshot.id))
+        .group_by(schema.ProjectSnapshot.snapshot_date)
+        .all()
+    )
+    sorted_dates = sorted(snapshot_dates, key=lambda x: SNAPSHOT_ORDER.get(x, 0))
+    snapshots_info = [
+        {"date": d, "count": counts_by_date.get(d, 0)}
+        for d in sorted_dates
+    ]
+
     return {
         "n_snapshots":                    n_snapshots,
-        "snapshot_dates":                 sorted(snapshot_dates, key=lambda x: SNAPSHOT_ORDER.get(x, 0)),
+        "snapshot_dates":                 sorted_dates,
+        "snapshots":                      snapshots_info,
         "total_projects":                 total_projects,
         "common_projects":                common_projects,
         "long_horizon_supported":         n_snapshots >= 12,

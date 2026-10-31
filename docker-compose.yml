@@ -1,0 +1,14 @@
+services:
+  foresight:
+    build: .
+    image: foresight:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist the SQLite database and user uploads outside the container
+      - ./backend/foresight.db:/app/backend/foresight.db
+      - ./backend/uploads:/app/backend/uploads
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+

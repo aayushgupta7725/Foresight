@@ -1,85 +1,66 @@
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
-const COLORS = { 'High Risk': '#ef4444', 'Medium Risk': '#f59e0b', 'Low Risk': '#22c55e' };
+const COLORS = {
+  'High Risk':   '#ef4444',
+  'Medium Risk': '#f59e0b',
+  'Low Risk':    '#22c55e',
+};
+
+const TEXT_COLORS = {
+  'High Risk':   '#dc2626',
+  'Medium Risk': '#d97706',
+  'Low Risk':    '#16a34a',
+};
 
 const PortfolioRisk = ({ summary }) => {
   if (!summary) return null;
 
   const pieData = [
-    { name: 'High Risk', value: summary.high_risk || 0 },
+    { name: 'High Risk',   value: summary.high_risk   || 0 },
     { name: 'Medium Risk', value: summary.medium_risk || 0 },
-    { name: 'Low Risk', value: summary.low_risk || 0 },
+    { name: 'Low Risk',    value: summary.low_risk    || 0 },
   ];
   const total = summary.total_projects || 0;
 
-  const sectorRows = (summary.sector_breakdown || []).slice(0, 4).map(s => ({
-    name: s.sector,
-    high: s.high,
-    medium: s.medium,
-    low: s.low,
-    total: s.total,
-  }));
+  const sectorRows = (summary.sector_breakdown || []).slice(0, 5);
 
   return (
     <div style={{
       background: '#fff', borderRadius: 16, padding: '20px 24px',
-      flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0
+      flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0,
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937', letterSpacing: '0.02em' }}>
-          PORTFOLIO RISK DISTRIBUTION
-        </div>
-        <span style={{
-          background: '#f3f4f6', color: '#6b7280', fontSize: 11, fontWeight: 600,
-          padding: '2px 8px', borderRadius: 8
-        }}>{total.toLocaleString()} Monitored</span>
-      </div>
-      <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 20 }}>
-        Multi-sector risk exposure & capital allocation
-      </div>
-
-      {/* CAPEX Cards */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        <div style={{
-          flex: 1, background: '#f9fafb', border: '1px solid #e5e7eb',
-          borderRadius: 10, padding: '12px 16px'
-        }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 6 }}>
-            Total Capex
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937' }}>
+            Portfolio Risk Distribution
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#1f2937' }}>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+            {total.toLocaleString()} projects monitored
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: '#9ca3af' }}>Total CAPEX</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#1f2937' }}>
             ₹{summary.total_capex} Lakh Cr
           </div>
         </div>
-        <div style={{
-          flex: 1, background: '#fff5f5', border: '1px solid #fecaca',
-          borderRadius: 10, padding: '12px 16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#ef4444', textTransform: 'uppercase' }}>
-              High Risk Capex
-            </div>
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>
-            ₹{summary.high_risk_capex} Lakh Cr ({summary.high_risk_capex_pct}%)
-          </div>
-        </div>
       </div>
 
-      {/* Pie + Legend Row */}
+      {/* Main content row */}
       <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-        {/* Donut Chart */}
-        <div style={{ position: 'relative', width: 130, height: 130, flexShrink: 0 }}>
-          <ResponsiveContainer width={130} height={130}>
+
+        {/* Donut */}
+        <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
+          <ResponsiveContainer width={120} height={120}>
             <PieChart>
               <Pie
                 data={pieData}
-                cx={60} cy={60}
-                innerRadius={38} outerRadius={60}
-                paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}
+                cx={55} cy={55}
+                innerRadius={36} outerRadius={56}
+                paddingAngle={2} dataKey="value"
+                startAngle={90} endAngle={-270}
               >
                 {pieData.map((entry, i) => (
                   <Cell key={i} fill={COLORS[entry.name]} />
@@ -89,67 +70,92 @@ const PortfolioRisk = ({ summary }) => {
             </PieChart>
           </ResponsiveContainer>
           <div style={{
-            position: 'absolute', inset: 0, display: 'flex',
-            flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
           }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#1f2937', lineHeight: 1 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1f2937', lineHeight: 1 }}>
               {total.toLocaleString()}
             </div>
-            <div style={{ fontSize: 9, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', marginTop: 2 }}>
+            <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', marginTop: 2 }}>
               Projects
             </div>
           </div>
         </div>
 
-        {/* Risk Breakdown + Sector Breakdown */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Risk breakdown bars */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pieData.map(({ name, value }) => {
+            const pct   = total > 0 ? Math.round(value / total * 100) : 0;
             const color = COLORS[name];
-            const pct = total > 0 ? Math.round(value / total * 100) : 0;
-            const bgMap = { 'High Risk': '#fff5f5', 'Medium Risk': '#fffbeb', 'Low Risk': '#f0fdf4' };
-            const borderMap = { 'High Risk': '#fecaca', 'Medium Risk': '#fde68a', 'Low Risk': '#bbf7d0' };
-            const textMap = { 'High Risk': '#dc2626', 'Medium Risk': '#d97706', 'Low Risk': '#16a34a' };
-
-            // Sector sub-info
-            const sectorList = sectorRows.map(s => ({ name: s.name, high: s.high }))
-              .filter(s => s.high > 0)
-              .slice(0, 2);
-
+            const tcolor = TEXT_COLORS[name];
             return (
-              <div key={name} style={{
-                background: bgMap[name], border: `1px solid ${borderMap[name]}`,
-                borderRadius: 8, padding: '8px 12px',
-                display: 'flex', alignItems: 'center', gap: 10
-              }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <div style={{ fontSize: 12, fontWeight: 600, color: textMap[name], width: 85 }}>{name}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: textMap[name], width: 48 }}>
-                  {value.toLocaleString()}
+              <div key={name}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: tcolor }}>{name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: tcolor }}>
+                    {value.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({pct}%)</span>
+                  </span>
                 </div>
-                <div style={{ fontSize: 11, color: '#9ca3af', width: 42 }}>({pct}%)</div>
-                {name === 'High Risk' && sectorList.length > 0 && (
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, marginLeft: 8 }}>
-                    {sectorRows.slice(0, 3).map(s => (
-                      <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontSize: 10, color: '#6b7280', width: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {s.name.split(' ').slice(0, 2).join(' ')}
-                        </span>
-                        <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>{s.high} High</span>
-                        <div style={{ flex: 1, height: 3, background: '#fee2e2', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%', background: '#ef4444', borderRadius: 2,
-                            width: `${s.total > 0 ? s.high / s.total * 100 : 0}%`
-                          }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div style={{ height: 6, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', width: `${pct}%`,
+                    background: color, borderRadius: 4,
+                    transition: 'width 0.4s ease',
+                  }} />
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid #f3f4f6' }} />
+
+      {/* High-risk CAPEX callout */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#9ca3af' }}>At-Risk CAPEX</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', lineHeight: 1.2 }}>
+            ₹{summary.high_risk_capex} Lakh Cr
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', marginLeft: 6 }}>
+              ({summary.high_risk_capex_pct}% of total)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sector breakdown mini-table */}
+      {sectorRows.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Top Sectors by High Risk
+          </div>
+          {sectorRows.map(s => {
+            const ratio = s.total > 0 ? s.high / s.total : 0;
+            return (
+              <div key={s.sector} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  fontSize: 11, color: '#374151', width: 130,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0,
+                }}>
+                  {s.sector}
+                </span>
+                <div style={{ flex: 1, height: 5, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', background: '#ef4444', borderRadius: 3,
+                    width: `${Math.round(ratio * 100)}%`,
+                  }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', width: 30, textAlign: 'right', flexShrink: 0 }}>
+                  {s.high}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

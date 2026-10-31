@@ -138,10 +138,15 @@ export default function ProjectsList() {
             style={{
               padding: '7px 10px', borderRadius: 8, border: '1px solid #e5e7eb',
               fontSize: 12, color: '#374151', background: '#fff', outline: 'none',
+              maxWidth: 220, textOverflow: 'ellipsis',
             }}
           >
             <option value="">All States</option>
-            {states.map(s => <option key={s} value={s}>{s}</option>)}
+            {states.map(s => (
+              <option key={s} value={s} title={s}>
+                {s.length > 36 ? s.substring(0, 34) + '...' : s}
+              </option>
+            ))}
           </select>
 
           {/* Sector */}

@@ -1,97 +1,274 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
+
+const TOPO_URL = '/india-states.topo.json';
+
+// Map backend state names → TopoJSON NAME_1 values where they differ
+const STATE_ALIASES = {
+  'Odisha':                              'Orissa',
+  'Uttarakhand':                         'Uttaranchal',
+  'Jammu & Kashmir':                     'Jammu and Kashmir',
+  'Andaman & Nicobar Islands':           'Andaman and Nicobar',
+  'Andaman & Nicobar':                   'Andaman and Nicobar',
+  'Dadra & Nagar Haveli':                'Dadra and Nagar Haveli',
+  'Daman & Diu':                         'Daman and Diu',
+  'Dadra & Nagar Haveli and Daman & Diu':'Dadra and Nagar Haveli',
+  'Telangana':                           'Andhra Pradesh',
+  'Ladakh':                              'Jammu and Kashmir',
+};
+
+// Tooltip display names for legacy TopoJSON NAME_1 values
+const DISPLAY_NAMES = {
+  'Orissa':                 'Odisha',
+  'Uttaranchal':            'Uttarakhand',
+  'Andhra Pradesh':         'Andhra Pradesh (incl. Telangana)',
+  'Jammu and Kashmir':      'Jammu & Kashmir (incl. Ladakh)',
+  'Dadra and Nagar Haveli': 'Dadra & Nagar Haveli and Daman & Diu',
+};
+
+const normalise = (name) => {
+  if (!name) return '';
+  const trimmed = name.trim();
+  return STATE_ALIASES[trimmed] || trimmed;
+};
+
+const displayName = (name) => DISPLAY_NAMES[name] || name;
+
+// Linear RGB lerp across 4 colour stops (green → yellow → orange → red)
+const riskColour = (t) => {
+  const stops = [
+    [34,  197, 94 ],  // green  t=0
+    [234, 179, 8  ],  // yellow t=0.33
+    [249, 115, 22 ],  // orange t=0.66
+    [239, 68,  68 ],  // red    t=1
+  ];
+  const clamped = Math.max(0, Math.min(1, t));
+  const seg     = 1 / (stops.length - 1);
+  const idx     = Math.min(Math.floor(clamped / seg), stops.length - 2);
+  const local   = (clamped - idx * seg) / seg;
+  const [r1, g1, b1] = stops[idx];
+  const [r2, g2, b2] = stops[idx + 1];
+  const r = Math.round(r1 + (r2 - r1) * local);
+  const g = Math.round(g1 + (g2 - g1) * local);
+  const b = Math.round(b1 + (b2 - b1) * local);
+  return `rgb(${r},${g},${b})`;
+};
 
 const GeospatialCard = ({ summary }) => {
-  const highRisk = summary?.high_risk ?? 0;
-  const highCapexPct = summary?.high_risk_capex_pct ?? 0;
+  const [tooltip, setTooltip] = useState(null);
+
+  const stateBreakdown = summary?.state_breakdown || [];
+  const highRisk       = summary?.high_risk       ?? 0;
+  const highCapexPct   = summary?.high_risk_capex_pct ?? 0;
+  const totalProjects  = summary?.total_projects  ?? 0;
+
+  // Build lookup: normalised NAME_1 → row (accumulating merged regions like Telangana into AP)
+  const stateMap = useMemo(() => {
+    const m = {};
+    stateBreakdown.forEach(s => {
+      const norm = normalise(s.state);
+      if (!norm) return;
+      if (m[norm]) {
+        m[norm] = {
+          ...m[norm],
+          high:   m[norm].high + (s.high ?? 0),
+          medium: m[norm].medium + (s.medium ?? 0),
+          low:    m[norm].low + (s.low ?? 0),
+          total:  m[norm].total + (s.total ?? 0),
+        };
+      } else {
+        m[norm] = { ...s, state: norm };
+      }
+    });
+    return m;
+  }, [stateBreakdown]);
+
+  // Use sqrt scale so mid-range states get visible colour spread
+  const sqrtMax = useMemo(() => {
+    const max = Math.max(1, ...stateBreakdown.map(s => s.high));
+    return Math.sqrt(max);
+  }, [stateBreakdown]);
+
+  const getFill = (geoName) => {
+    const data = stateMap[geoName];
+    if (!data || data.total === 0) return '#1e3a5f'; // no data — dark slate
+    if (data.high === 0)           return '#166534'; // zero high-risk — dark green
+    const t = Math.sqrt(data.high) / sqrtMax;
+    return riskColour(t);
+  };
+
+  const top3 = stateBreakdown.slice(0, 3);
 
   return (
     <div style={{
-      background: '#0f172a', borderRadius: 16, padding: '20px',
-      width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column',
-      color: '#fff', minHeight: 320,
+      background: '#0f172a',
+      borderRadius: 16,
+      padding: '16px 18px',
+      width: 300,
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      color: '#fff',
     }}>
-      {/* Title Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#4ade80', lineHeight: 1.3, letterSpacing: '0.02em' }}>
-            GEOSPATIAL<br />RISK<br />CORRIDORS
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Geospatial Risk Map
+          </div>
+          <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>
+            High-risk projects by state
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <span style={{
-            fontSize: 9, fontWeight: 700, background: '#1e3a5f', color: '#60a5fa',
-            padding: '3px 6px', borderRadius: 6, border: '1px solid #1d4ed8',
-          }}>LIVE GIS</span>
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600,
-            background: 'rgba(239,68,68,0.15)', color: '#f87171',
-            padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)',
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-            {highRisk} High Risk
-          </span>
+        <span style={{
+          fontSize: 10, fontWeight: 700,
+          background: 'rgba(239,68,68,0.15)', color: '#f87171',
+          padding: '3px 10px', borderRadius: 20,
+          border: '1px solid rgba(239,68,68,0.25)',
+          display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+        }}>
+          <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444' }} />
+          {highRisk} High
+        </span>
+      </div>
+
+      {/* Choropleth map */}
+      <div style={{ borderRadius: 8, overflow: 'hidden', background: '#0c1628' }}>
+        <ComposableMap
+          projection="geoMercator"
+          projectionConfig={{ center: [82.81, 21.18], scale: 477 }}
+          width={264}
+          height={300}
+          style={{ width: '100%', height: 'auto', display: 'block', background: '#0c1628' }}
+        >
+          {/* Background fill for ocean */}
+          <rect width={264} height={300} fill="#0c1628" />
+          <Geographies geography={TOPO_URL}>
+            {({ geographies }) =>
+              geographies.map(geo => {
+                const name = geo.properties.NAME_1;
+                const data = stateMap[name];
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={getFill(name)}
+                    stroke="#0f172a"
+                    strokeWidth={0.5}
+                    style={{
+                      default: { outline: 'none' },
+                      hover:   { outline: 'none', opacity: 0.8, cursor: 'pointer' },
+                      pressed: { outline: 'none' },
+                    }}
+                    onMouseEnter={evt => setTooltip({
+                      name: displayName(name),
+                      high:   data?.high   ?? 0,
+                      medium: data?.medium ?? 0,
+                      low:    data?.low    ?? 0,
+                      total:  data?.total  ?? 0,
+                      x: evt.clientX,
+                      y: evt.clientY,
+                    })}
+                    onMouseMove={evt => setTooltip(t => t ? { ...t, x: evt.clientX, y: evt.clientY } : t)}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
+                );
+              })
+            }
+          </Geographies>
+        </ComposableMap>
+      </div>
+
+      {/* Hover tooltip — fixed to cursor */}
+      {tooltip && (
+        <div style={{
+          position: 'fixed',
+          left: tooltip.x + 14,
+          top:  tooltip.y - 10,
+          background: '#1e293b',
+          border: '1px solid #334155',
+          borderRadius: 8,
+          padding: '8px 12px',
+          fontSize: 11,
+          color: '#e2e8f0',
+          pointerEvents: 'none',
+          zIndex: 9999,
+          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 5, color: '#fff' }}>{tooltip.name}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ color: '#f87171' }}>⬤ High Risk: <b>{tooltip.high}</b></span>
+            <span style={{ color: '#fbbf24' }}>⬤ Medium: {tooltip.medium}</span>
+            <span style={{ color: '#4ade80' }}>⬤ Low: {tooltip.low}</span>
+            <span style={{ color: '#94a3b8', marginTop: 3, paddingTop: 3, borderTop: '1px solid #334155' }}>
+              Total: {tooltip.total}
+            </span>
+          </div>
         </div>
+      )}
+
+      {/* Colour scale legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 9, color: '#64748b', flexShrink: 0 }}>Low</span>
+        <div style={{
+          flex: 1, height: 5, borderRadius: 3,
+          background: 'linear-gradient(to right, #166534, #22c55e, #eab308, #f97316, #ef4444)',
+        }} />
+        <span style={{ fontSize: 9, color: '#64748b', flexShrink: 0 }}>High</span>
       </div>
 
-      <div style={{ fontSize: 10, color: '#64748b', marginBottom: 12 }}>
-        National corridor telemetry & risk distribution
-      </div>
+      {/* Top 3 hotspot states */}
+      {top3.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Top Hotspots
+          </div>
+          {top3.map((s, i) => (
+            <div key={s.state} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 800, color: '#0f172a',
+                background: ['#ef4444', '#f97316', '#f59e0b'][i],
+                width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{i + 1}</span>
+              <span style={{
+                fontSize: 11, color: '#cbd5e1', flex: 1,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{s.state}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{
+                  width: 50, height: 4, borderRadius: 2,
+                  background: '#1e3a5f', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%', borderRadius: 2, background: '#ef4444',
+                    width: `${Math.round(Math.sqrt(s.high) / sqrtMax * 100)}%`,
+                  }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#f87171', flexShrink: 0 }}>
+                  {s.high}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Map Visual */}
+      {/* Footer */}
       <div style={{
-        flex: 1, background: 'rgba(30,41,59,0.8)', borderRadius: 12,
-        border: '1px solid rgba(255,255,255,0.08)', position: 'relative',
-        overflow: 'hidden', minHeight: 140,
+        display: 'flex', justifyContent: 'space-between',
+        borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 10,
       }}>
-        <svg viewBox="0 0 200 180" style={{ width: '100%', height: '100%', opacity: 0.9 }}>
-          {/* Grid */}
-          {[20, 40, 60, 80, 100, 120, 140, 160].map(y => (
-            <line key={y} x1="0" y1={y} x2="200" y2={y} stroke="#1e293b" strokeWidth="0.5" />
-          ))}
-          {[30, 60, 90, 120, 150, 180].map(x => (
-            <line key={x} x1={x} y1="0" x2={x} y2="180" stroke="#1e293b" strokeWidth="0.5" />
-          ))}
-          {/* Routes */}
-          <path d="M 100 30 Q 80 70 70 110 Q 60 130 55 155"
-            fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="5,3" opacity="0.9" />
-          <path d="M 140 35 Q 150 65 155 95 Q 158 120 145 145"
-            fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="5,3" opacity="0.9" />
-          <path d="M 60 40 Q 90 55 110 80 Q 125 100 120 130"
-            fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="5,3" opacity="0.7" />
-          {/* Hotspot circles */}
-          <circle cx="100" cy="30" r="6" fill="#ef4444" opacity="0.9" />
-          <circle cx="100" cy="30" r="11" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.4" />
-          <circle cx="140" cy="35" r="5" fill="#f59e0b" opacity="0.9" />
-          <circle cx="140" cy="35" r="10" fill="none" stroke="#f59e0b" strokeWidth="1" opacity="0.4" />
-          <text x="108" y="28" fontSize="6" fill="#ef4444" fontWeight="700">High Risk Zone</text>
-          <text x="148" y="34" fontSize="6" fill="#f59e0b" fontWeight="700">Medium Zone</text>
-          <text x="62" y="145" fontSize="6" fill="#22c55e">Low Risk</text>
-          {/* Legend */}
-          <circle cx="18" cy="165" r="3" fill="#ef4444" />
-          <text x="24" y="168" fontSize="5.5" fill="#94a3b8">High Risk</text>
-          <circle cx="75" cy="165" r="3" fill="#f59e0b" />
-          <text x="81" y="168" fontSize="5.5" fill="#94a3b8">Medium</text>
-          <circle cx="125" cy="165" r="3" fill="#22c55e" />
-          <text x="131" y="168" fontSize="5.5" fill="#94a3b8">Low Risk</text>
-        </svg>
-      </div>
-
-      {/* Footer stats */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 14 }}>
         <div>
-          <div style={{ fontSize: 10, color: '#64748b' }}>High Risk CAPEX</div>
+          <div style={{ fontSize: 9, color: '#475569' }}>High-Risk CAPEX</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#f87171' }}>{highCapexPct}%</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#4ade80' }}>{highRisk}</div>
-          <div style={{ fontSize: 10, color: '#64748b' }}>High Risk Projects</div>
+          <div style={{ fontSize: 9, color: '#475569' }}>Total Monitored</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80' }}>{totalProjects.toLocaleString()}</div>
         </div>
-        <button style={{
-          background: '#1e3a5f', color: '#60a5fa', border: '1px solid #1d4ed8',
-          borderRadius: 8, padding: '6px 10px', fontSize: 10, fontWeight: 700, cursor: 'pointer',
-        }}>
-          GIS<br />View
-        </button>
       </div>
     </div>
   );

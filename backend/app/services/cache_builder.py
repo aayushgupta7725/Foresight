@@ -60,6 +60,7 @@ def build_cache(db: Session, force: bool = False) -> bool:
     high_risk = medium_risk = low_risk = 0
     stagnating = high_sched = high_cost = deadline_p = 0
     sector_data: Dict[str, dict] = {}
+    state_data:  Dict[str, dict] = {}
 
     for snap in latest_snaps:
         project = proj_map.get(snap.project_id)
@@ -82,10 +83,21 @@ def build_cache(db: Session, force: bool = False) -> bool:
         else:
             low_risk += 1
 
-        if features["progress_velocity"] <= 0:     stagnating += 1
-        if features["schedule_drift"]    > 20:     high_sched += 1
-        if features["cost_escalation"]   > 15:     high_cost  += 1
-        if features["recovery_gap"]      > 5:      deadline_p += 1
+        phys = features.get("physical_progress", 0.0)
+        if prev is not None:
+            if features["progress_velocity"] <= 0 and phys < 100:
+                stagnating += 1
+        else:
+            from app.services.feature_engineering import parse_date, SNAPSHOT_REF_DATES
+            start_d = parse_date(snap.start_date)
+            ref_d = SNAPSHOT_REF_DATES.get(latest_date, None)
+            el_m = max((ref_d - start_d).days / 30.44, 1.0) if (start_d and ref_d) else 12.0
+            if (phys == 0.0 and el_m >= 6.0) or (phys < 5.0 and el_m >= 12.0):
+                stagnating += 1
+
+        if features["schedule_drift"] > 20 and phys < 100:     high_sched += 1
+        if features["cost_escalation"] > 15:                   high_cost  += 1
+        if features["recovery_gap"] > 5 and phys < 95:         deadline_p += 1
 
         if sector not in sector_data:
             sector_data[sector] = {"high": 0, "medium": 0, "low": 0, "total": 0}
@@ -93,6 +105,14 @@ def build_cache(db: Session, force: bool = False) -> bool:
         sector_data[sector][{"High Risk": "high",
                              "Medium Risk": "medium",
                              "Low Risk": "low"}[label]] += 1
+
+        state_key = (project.state or "Unknown").strip()
+        if state_key not in state_data:
+            state_data[state_key] = {"high": 0, "medium": 0, "low": 0, "total": 0}
+        state_data[state_key]["total"] += 1
+        state_data[state_key][{"High Risk": "high",
+                               "Medium Risk": "medium",
+                               "Low Risk": "low"}[label]] += 1
 
         projects_list.append({
             "project_id":         project.project_id,
@@ -125,6 +145,11 @@ def build_cache(db: Session, force: bool = False) -> bool:
         key=lambda x: x["total"], reverse=True
     )
 
+    state_list = sorted(
+        [{"state": k, **v} for k, v in state_data.items()],
+        key=lambda x: x["high"], reverse=True
+    )
+
     summary = {
         "total_projects":       len(projects_list),
         "high_risk":            high_risk,
@@ -139,6 +164,7 @@ def build_cache(db: Session, force: bool = False) -> bool:
         "high_risk_capex_pct":  round(high_risk_capex / total_capex * 100, 1) if total_capex > 0 else 0,
         "active_snapshot":      latest_date,
         "sector_breakdown":     sector_list[:8],
+        "state_breakdown":      state_list,
     }
 
     set_cache(latest_date, projects_list, summary)
